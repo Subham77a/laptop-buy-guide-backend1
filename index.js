@@ -3,17 +3,20 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import Detail from './models/details.js'; // import with .js extension
 // import { CohereClient } from 'cohere-ai';
+import dotenv from "dotenv"
+dotenv.config();
+
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.port||3000;
 
-app.use(cors());
+app.use(cors(process.env.URI));
 app.use(express.json()); // to parse JSON body
 
-const mongoURI = 'mongodb://127.0.0.1:27017/user';
 
 // MongoDB connection
-mongoose.connect(mongoURI)
+console.log("process",process.env.MONGO_DB_URI)
+mongoose.connect(process.env.MONGO_DB_URI)
   .then(() => console.log('MongoDB connected successfully! 🎉'))
   .catch(err => console.error('MongoDB connection error:', err));
 
