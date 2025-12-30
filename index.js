@@ -6,16 +6,22 @@ import Detail from './models/details.js'; // import with .js extension
 import dotenv from "dotenv"
 dotenv.config();
 
+import authRoutes from "./routes/authRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import jwt from "jsonwebtoken";
+
 
 const app = express();
 const PORT = process.env.port||3000;
 
-app.use(cors(process.env.URI));
+app.use(cors());
 app.use(express.json()); // to parse JSON body
 
+app.use("/api/auth", authRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // MongoDB connection
-console.log("process",process.env.MONGO_DB_URI)
+console.log("process",process.env.URI)
 mongoose.connect(process.env.MONGO_DB_URI)
   .then(() => console.log('MongoDB connected successfully! 🎉'))
   .catch(err => console.error('MongoDB connection error:', err));
@@ -43,32 +49,45 @@ app.post('/login', async (req, res) => {
     }
 
     // Find user by username
-    const user = await Detail.findOne({ username });
+ const user = await Detail.findOne({ username });
 
-    if (!user) {
-      return res.json({
-        success: false,
-        message: 'User not found.',
-      });
-    }
+if (!user) {
+  return res.status(401).json({
+    success: false,
+    message: "User not found",
+  });
+}
 
-    // Compare passwords (plain text for now — later use bcrypt)
-    if (user.password !== password) {
+// ⚠️ Plain-text check for now (bcrypt later)
+if (user.password !== password) {
+  return res.status(401).json({
+    success: false,
+    message: "Incorrect password",
+  });
+}
+
+// ✅ CREATE JWT
+const token = jwt.sign(
+  {
+    id: user._id,
+    username: user.username,
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: "1h" }
+);
+
+// ✅ SEND TOKEN INSTEAD OF MESSAGE
+res.json({
+  success: true,
+  token,
+});
+
+       if (user.password !== password) {
       return res.json({
         success: false,
         message: 'Incorrect password.',
       });
     }
-
-    // ✅ Login successful — send only safe user info
-    res.json({
-      success: true,
-      message: 'Login successful!',
-      user: {
-        name: user.name,
-        username: user.username,
-      },
-    });
 
   } catch (error) {
     console.error('Error during login:', error);
@@ -108,56 +127,6 @@ app.post('/addDetail', async (req, res) => {
     res.status(500).json({ message: 'Error saving data', error });
   }
 });
-
-// Add skill route
-// app.post('/skills', async (req, res) => {
-//   try {
-//     const { username, skills } = req.body;
-
-//     if (!username || !skills || !Array.isArray(skills) || skills.length === 0) {
-//       return res.status(400).json({ success: false, message: 'Username and at least one skill are required.' });
-//     }
-
-//     await Skill.updateOne(
-//       { username },
-//       { $push: { skills: { $each: skills } } },
-//       { upsert: true } // create if not exists
-//     );
-
-//     res.status(201).json({ success: true, message: 'Skills saved successfully!' });
-//   } catch (error) {
-//     console.error('Error saving skills:', error);
-//     res.status(500).json({ success: false, message: 'Error saving skills', error: error.message });
-//   }
-// });
-
-
-// app.get('/dashboard', async (req, res) => {
-//   const prompt = "I know React JS, JavaScript, Node.js. Suggest skills to learn next with reasons.";
-
-//   try {
-//     if (!process.env.COHERE_API_KEY) {
-//       return res.status(500).json({ error: 'Cohere API key not set' });
-//     }
-
-//     const generate = await cohere.generate({
-//       model: 'command-xlarge-nightly',
-//       prompt,
-//       max_tokens: 500,
-//       temperature: 0.7,
-//     });
-
-//     if (generate.generations && generate.generations.length > 0) {
-//       res.json({ result: generate.generations[0].text });
-//     } else {
-//       res.status(500).json({ error: 'No generations returned from Cohere' });
-//     }
-//   } catch (error) {
-//     console.error('Cohere API error:', error);
-//     res.status(500).json({ error: 'Error generating AI response' });
-//   }
-// });
-
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
